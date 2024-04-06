@@ -1,3 +1,10 @@
+import {
+  CreatePostBody,
+  UpdatePostBody,
+  createPostSchema,
+  getPostSchema,
+  updatePostSchema,
+} from "@pransshhh/blogwave_validation";
 import { PrismaClient } from "@prisma/client/edge";
 import { withAccelerate } from "@prisma/extension-accelerate";
 import { Hono } from "hono";
@@ -34,12 +41,17 @@ postRouter.use("/*", async (c, next) => {
 });
 
 postRouter.post("/", async (c) => {
-  const authorId = c.get("userId");
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
 
-  const body = await c.req.json();
+  const body: CreatePostBody = await c.req.json();
+  const { success } = createPostSchema.safeParse(body);
+  if (!success) {
+    c.status(411);
+    return c.json({ error: "Invalid request body" });
+  }
+  const authorId = c.get("userId");
 
   try {
     const post = await prisma.post.create({
@@ -53,8 +65,6 @@ postRouter.post("/", async (c) => {
     return c.json({ id: post.id });
   } catch (error) {
     c.status(400);
-    console.log(error);
-
     return c.json({ error: "Invalid" });
   }
 });
@@ -64,7 +74,12 @@ postRouter.put("/", async (c) => {
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
 
-  const body = await c.req.json();
+  const body: UpdatePostBody = await c.req.json();
+  const { success } = updatePostSchema.safeParse(body);
+  if (!success) {
+    c.status(411);
+    return c.json({ error: "Invalid request body" });
+  }
   const authorId = c.get("userId");
   try {
     const post = await prisma.post.update({
@@ -86,11 +101,16 @@ postRouter.put("/", async (c) => {
 });
 
 postRouter.get("/get/:id", async (c) => {
-  const id = c.req.param("id");
   const prisma = new PrismaClient({
     datasourceUrl: c.env.DATABASE_URL,
   }).$extends(withAccelerate());
 
+  const id = c.req.param("id");
+  const { success } = getPostSchema.safeParse(id);
+  if (!success) {
+    c.status(411);
+    return c.json({ error: "Invalid request id" });
+  }
   try {
     const post = await prisma.post.findFirst({
       where: { id },
